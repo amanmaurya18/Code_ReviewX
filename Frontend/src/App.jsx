@@ -163,7 +163,7 @@ function App() {
         <div className="brand">
           <div className="brand-icon">⚡</div>
           <span className="brand-title">CodeReviewX</span>
-          <span className="brand-badge">AI 3.5</span>
+          <span className="brand-badge">Gemini 2.0</span>
         </div>
 
         {/* Multi-Language Bar */}
@@ -245,7 +245,7 @@ function App() {
             <div className="panel-title">
               <span>🔍</span>
               <span>AI Senior Review</span>
-              <span className="file-badge">Gemini 3.5 Flash</span>
+              <span className="file-badge">Gemini 2.0 Flash</span>
             </div>
             {review && (
               <button className="copy-btn" onClick={handleCopyReview}>

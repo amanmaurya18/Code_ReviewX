@@ -9,10 +9,19 @@ module.exports.getReview = async (req, res) => {
     }
 
     try {
+        if (!process.env.GOOGLE_GEMINI_KEY || process.env.GOOGLE_GEMINI_KEY.trim() === '' || process.env.GOOGLE_GEMINI_KEY === 'your_gemini_api_key_here') {
+            return res.status(401).json({ 
+                error: 'Missing GOOGLE_GEMINI_KEY in BACKEND/.env file. Please set your Gemini API key from https://aistudio.google.com/ in BACKEND/.env.' 
+            });
+        }
         const response = await aiService(code, language);
         res.send(response);
     } catch (error) {
         console.error("AI Service Error:", error);
-        res.status(500).json({ error: error.message || 'Failed to generate review' });
+        let message = error.message || 'Failed to generate review';
+        if (error.status === 401 || message.includes('API key') || message.includes('authentication')) {
+            message = 'Invalid GOOGLE_GEMINI_KEY. Please verify your API key in BACKEND/.env at https://aistudio.google.com/';
+        }
+        res.status(500).json({ error: message });
     }
 }
