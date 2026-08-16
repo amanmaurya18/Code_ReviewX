@@ -120,10 +120,15 @@ function App() {
     try {
       const payload = { prompt: code, code: code, language: language };
       let response;
-      try {
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (isLocalhost) {
+        try {
+          response = await axios.post('/ai/get-review', payload);
+        } catch (proxyErr) {
+          response = await axios.post('http://localhost:3000/ai/get-review', payload);
+        }
+      } else {
         response = await axios.post('/ai/get-review', payload);
-      } catch (proxyErr) {
-        response = await axios.post('http://localhost:3000/ai/get-review', payload);
       }
       setReview(response.data);
     } catch (err) {
