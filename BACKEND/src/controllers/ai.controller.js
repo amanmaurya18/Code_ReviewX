@@ -11,7 +11,7 @@ module.exports.getReview = async (req, res) => {
     try {
         if (!process.env.GOOGLE_GEMINI_KEY || process.env.GOOGLE_GEMINI_KEY.trim() === '' || process.env.GOOGLE_GEMINI_KEY === 'your_gemini_api_key_here') {
             return res.status(401).json({ 
-                error: 'Missing GOOGLE_GEMINI_KEY in BACKEND/.env file. Please set your Gemini API key from https://aistudio.google.com/ in BACKEND/.env.' 
+                error: 'Missing GOOGLE_GEMINI_KEY environment variable. On Vercel, add GOOGLE_GEMINI_KEY under Project Settings -> Environment Variables.' 
             });
         }
         const response = await aiService(code, language);

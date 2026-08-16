@@ -4,7 +4,11 @@
   "outputDirectory": "Frontend/dist",
   "rewrites": [
     {
-      "source": "/ai/:path*",
+      "source": "/ai/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/ai",
       "destination": "/api/index.js"
     }
   ]

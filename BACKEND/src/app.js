@@ -11,5 +11,6 @@ app.get('/', (req, res) => {
 });
 
 app.use('/ai', aiRoutes);
+app.use('/', aiRoutes);
 
 module.exports = app;
