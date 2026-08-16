@@ -1,0 +1,25 @@
+{
+  "name": "code-review-x",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd Frontend && npm install && npm run build",
+    "start": "node BACKEND/Server.js",
+    "dev:backend": "cd BACKEND && node Server.js",
+    "dev:frontend": "cd Frontend && npm run dev"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.19.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "highlight.js": "^11.11.1",
+    "prismjs": "^1.30.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "react-simple-code-editor": "^0.14.1",
+    "rehype-highlight": "^7.0.2"
+  }
+}
