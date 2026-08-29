@@ -79,15 +79,33 @@ async function generateContent(prompt, language = 'javascript') {
         throw new Error("GOOGLE_GEMINI_KEY is missing from environment variables.");
     }
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-3.6-flash",
-        systemInstruction
-    });
-
+    const candidateModels = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
     const userPrompt = `[Target Language: ${language.toUpperCase()}]\n\nPlease review the following ${language} code:\n\`\`\`${language}\n${prompt}\n\`\`\``;
-    const result = await model.generateContent(userPrompt);
 
-    return result.response.text();
+    let lastError = null;
+    for (const modelName of candidateModels) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const model = genAI.getGenerativeModel({ 
+                    model: modelName,
+                    systemInstruction
+                });
+                const result = await model.generateContent(userPrompt);
+                return result.response.text();
+            } catch (err) {
+                lastError = err;
+                const isTransient = err.status === 503 || (err.message && err.message.includes('503'));
+                if (isTransient && attempt === 1) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    continue;
+                }
+                console.warn(`Model ${modelName} (attempt ${attempt}) failed: ${err.message}`);
+                break;
+            }
+        }
+    }
+
+    throw lastError || new Error("Failed to generate content with available Gemini models.");
 }
 
 module.exports = generateContent

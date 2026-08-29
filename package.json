@@ -5,6 +5,7 @@
   "scripts": {
     "build": "cd Frontend && npm install && npm run build",
     "start": "node BACKEND/Server.js",
+    "dev": "npm run dev:backend & npm run dev:frontend",
     "dev:backend": "cd BACKEND && node Server.js",
     "dev:frontend": "cd Frontend && npm run dev"
   },
