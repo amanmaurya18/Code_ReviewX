@@ -21,19 +21,35 @@ module.exports.getReview = async (req, res) => {
 
     try {
         const response = await aiService(code, language, apiKey);
-        res.send(response);
+        return res.send(response);
     } catch (error) {
+        console.warn("AI Service primary key attempt failed:", error.message);
+        
+        // If primary key fails with 401/unauthenticated, try FALLBACK_GEMINI_KEY if available
+        const fallbackKey = process.env.FALLBACK_GEMINI_KEY;
+        const isAuthError = error.status === 401 || 
+            (error.message && (
+                error.message.includes('API key') || 
+                error.message.includes('authentication') ||
+                error.message.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED') ||
+                error.message.includes('UNAUTHENTICATED')
+            ));
+
+        if (isAuthError && fallbackKey && apiKey !== fallbackKey) {
+            try {
+                console.log("Attempting fallback Gemini API key...");
+                const fallbackResponse = await aiService(code, language, fallbackKey);
+                return res.send(fallbackResponse);
+            } catch (fallbackErr) {
+                console.error("Fallback Gemini key also failed:", fallbackErr.message);
+            }
+        }
+
         console.error("AI Service Error:", error);
         let message = error.message || 'Failed to generate review';
         let status = 500;
 
-        if (
-            error.status === 401 || 
-            message.includes('API key') || 
-            message.includes('authentication') ||
-            message.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED') ||
-            message.includes('UNAUTHENTICATED')
-        ) {
+        if (isAuthError) {
             status = 401;
             message = 'Invalid or unauthorized Gemini API key. Please generate a valid Gemini API key at https://aistudio.google.com/app/apikey';
             return res.status(status).json({ error: message, needKey: true });
