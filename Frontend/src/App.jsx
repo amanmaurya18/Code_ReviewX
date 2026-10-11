@@ -88,6 +88,12 @@ function App() {
   const [ review, setReview ] = useState(``)
   const [ loading, setLoading ] = useState(false)
   const [ copied, setCopied ] = useState(false)
+  const [ customApiKey, setCustomApiKey ] = useState(() => localStorage.getItem('code_review_x_api_key') || '')
+  const [ isModalOpen, setIsModalOpen ] = useState(false)
+  const [ modalKeyInput, setModalKeyInput ] = useState('')
+  const [ showKeySecret, setShowKeySecret ] = useState(false)
+  const [ keyStatusMessage, setKeyStatusMessage ] = useState('')
+  const [ isKeyErrorNotice, setIsKeyErrorNotice ] = useState(false)
 
   useEffect(() => {
     prism.highlightAll()
@@ -113,31 +119,103 @@ function App() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const openKeyModal = () => {
+    setModalKeyInput(customApiKey)
+    setKeyStatusMessage('')
+    setIsModalOpen(true)
+  }
+
+  const saveCustomKey = () => {
+    const trimmed = modalKeyInput.trim()
+    if (!trimmed) {
+      localStorage.removeItem('code_review_x_api_key')
+      setCustomApiKey('')
+      setKeyStatusMessage('Custom key removed. The app will use server environment key.')
+      setTimeout(() => {
+        setIsModalOpen(false)
+        setKeyStatusMessage('')
+      }, 1200)
+      return
+    }
+    localStorage.setItem('code_review_x_api_key', trimmed)
+    setCustomApiKey(trimmed)
+    setIsKeyErrorNotice(false)
+    setKeyStatusMessage('✓ Key saved locally in your browser!')
+    setTimeout(() => {
+      setIsModalOpen(false)
+      setKeyStatusMessage('')
+    }, 900)
+  }
+
+  const clearSavedKey = () => {
+    localStorage.removeItem('code_review_x_api_key')
+    setCustomApiKey('')
+    setModalKeyInput('')
+    setKeyStatusMessage('Key cleared.')
+    setTimeout(() => {
+      setIsModalOpen(false)
+      setKeyStatusMessage('')
+    }, 1000)
+  }
+
   async function reviewCode() {
     if (loading || !code.trim()) return;
     setLoading(true);
     setReview('');
+    setIsKeyErrorNotice(false);
+
     try {
-      const payload = { prompt: code, code: code, language: language };
+      const payload = { 
+        prompt: code, 
+        code: code, 
+        language: language,
+        apiKey: customApiKey ? customApiKey.trim() : undefined
+      };
+      const axiosConfig = {
+        headers: customApiKey ? { 'x-gemini-key': customApiKey.trim() } : {}
+      };
+
       let response;
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       if (isLocalhost) {
         try {
-          response = await axios.post('/ai/get-review', payload);
+          response = await axios.post('/ai/get-review', payload, axiosConfig);
         } catch (proxyErr) {
-          response = await axios.post('http://localhost:3000/ai/get-review', payload);
+          response = await axios.post('http://localhost:3000/ai/get-review', payload, axiosConfig);
         }
       } else {
-        response = await axios.post('/ai/get-review', payload);
+        try {
+          response = await axios.post('/ai/get-review', payload, axiosConfig);
+        } catch (postErr) {
+          if (postErr.response?.status === 404) {
+            try {
+              response = await axios.post('/api/get-review', payload, axiosConfig);
+            } catch (err2) {
+              if (err2.response?.status === 404) {
+                response = await axios.post('/api', payload, axiosConfig);
+              } else {
+                throw err2;
+              }
+            }
+          } else {
+            throw postErr;
+          }
+        }
       }
       setReview(response.data);
     } catch (err) {
       console.error(err);
-      const errMsg = err.response?.data?.error || err.message;
-      if (errMsg.includes('Network Error') || err.code === 'ERR_NETWORK') {
+      const is401 = err.response?.status === 401;
+      const needKey = err.response?.data?.needKey;
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message;
+
+      if (is401 || needKey || (typeof errMsg === 'string' && (errMsg.includes('GOOGLE_GEMINI_KEY') || errMsg.includes('Gemini API key') || errMsg.includes('Missing')))) {
+        setIsKeyErrorNotice(true);
+        setReview(errMsg || 'Missing or invalid Google Gemini API Key.');
+      } else if (typeof errMsg === 'string' && (errMsg.includes('Network Error') || err.code === 'ERR_NETWORK')) {
         setReview("### 🔌 Backend Server Not Connected\n\nMake sure the backend server is running on port 3000:\n```bash\ncd BACKEND\nnode Server.js\n```");
       } else {
-        setReview("### ❌ Error Requesting Review\n\n" + errMsg);
+        setReview("### ❌ Error Requesting Review\n\n" + (typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg)));
       }
     } finally {
       setLoading(false);
@@ -182,6 +260,15 @@ function App() {
 
         {/* Header Controls */}
         <div className="header-actions">
+          <button 
+            className={`btn-key ${customApiKey ? 'btn-key-active' : ''}`}
+            onClick={openKeyModal}
+            title={customApiKey ? "Custom Gemini API Key active (click to configure)" : "Configure Gemini API Key"}
+          >
+            <span className={`key-dot ${customApiKey ? 'dot-active' : ''}`}></span>
+            <span>🔑 {customApiKey ? 'Key Active' : 'API Key'}</span>
+          </button>
+
           <button className="btn-secondary" onClick={handleReset} title="Load sample code">
             ↻ Reset Sample
           </button>
@@ -247,7 +334,7 @@ function App() {
               <span>AI Senior Review</span>
               <span className="file-badge">Gemini 2.0 Flash</span>
             </div>
-            {review && (
+            {review && !isKeyErrorNotice && (
               <button className="copy-btn" onClick={handleCopyReview}>
                 {copied ? '✓ Copied!' : '📋 Copy Review'}
               </button>
@@ -258,6 +345,30 @@ function App() {
               <div className="placeholder-state">
                 <div className="loading-spinner"></div>
                 <p>Senior AI Code Reviewer is analyzing your {currentLangObj.name} code...</p>
+              </div>
+            ) : isKeyErrorNotice ? (
+              <div className="key-error-card">
+                <div className="error-card-badge">⚠️ Gemini API Key Needed</div>
+                <h3 className="error-card-title">Setup Your Google Gemini API Key</h3>
+                <p className="error-card-desc">
+                  {review || 'To get AI code reviews, connect your Google Gemini API key. You can get a free key in less than a minute.'}
+                </p>
+                <div className="error-card-actions">
+                  <button className="btn-primary" onClick={openKeyModal}>
+                    🔑 Enter Gemini API Key
+                  </button>
+                  <a 
+                    href="https://aistudio.google.com/app/apikey" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn-secondary external-link"
+                  >
+                    Get Free Key at Google AI Studio ↗
+                  </a>
+                </div>
+                <div className="error-card-tip">
+                  <strong>💡 For Vercel Deployment:</strong> You can also add <code>GOOGLE_GEMINI_KEY</code> in your <strong>Vercel Project Settings → Environment Variables</strong> so visitors don't have to enter their own key.
+                </div>
               </div>
             ) : review ? (
               <div className="markdown-body">
@@ -277,6 +388,77 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* API Key Modal */}
+      {isModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">
+                <span>🔑</span>
+                <h3>Google Gemini API Key</h3>
+              </div>
+              <button className="modal-close" onClick={() => setIsModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <p className="modal-desc">
+                Enter your Google Gemini API key. Your key is stored securely in your browser's <code>localStorage</code> and used directly for requests.
+              </p>
+
+              <div className="key-input-group">
+                <input 
+                  type={showKeySecret ? "text" : "password"} 
+                  value={modalKeyInput}
+                  onChange={e => setModalKeyInput(e.target.value)}
+                  placeholder="Paste your Gemini key here (e.g. AIzaSy...)"
+                  className="key-input"
+                  autoFocus
+                />
+                <button 
+                  type="button" 
+                  className="key-toggle-btn"
+                  onClick={() => setShowKeySecret(!showKeySecret)}
+                  title={showKeySecret ? "Hide key" : "Show key"}
+                >
+                  {showKeySecret ? "🙈" : "👁️"}
+                </button>
+              </div>
+
+              {keyStatusMessage && (
+                <div className="modal-status-msg">{keyStatusMessage}</div>
+              )}
+
+              <div className="modal-hints">
+                <div className="hint-item">
+                  <span>✨</span>
+                  <span>Don't have a key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Get a free Gemini API key at Google AI Studio ↗</a></span>
+                </div>
+                <div className="hint-item">
+                  <span>🔒</span>
+                  <span>Keys are stored strictly in your local browser and never exposed to other visitors.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              {customApiKey && (
+                <button className="btn-danger" onClick={clearSavedKey}>
+                  Remove Key
+                </button>
+              )}
+              <div className="footer-right">
+                <button className="btn-secondary" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </button>
+                <button className="btn-primary" onClick={saveCustomKey}>
+                  Save & Connect
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

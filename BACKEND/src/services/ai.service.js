@@ -73,13 +73,13 @@ const systemInstruction = `
                 Your mission is to ensure every piece of code follows high standards. Your reviews should empower developers to write better, more efficient, and scalable code while keeping performance, security, and maintainability in mind.
                 `;
 
-async function generateContent(prompt, language = 'javascript') {
-    const apiKey = process.env.GOOGLE_GEMINI_KEY;
+async function generateContent(prompt, language = 'javascript', apiKeyOverride = null) {
+    const apiKey = apiKeyOverride || process.env.GOOGLE_GEMINI_KEY;
     if (!apiKey) {
         throw new Error("GOOGLE_GEMINI_KEY is missing from environment variables.");
     }
     const genAI = new GoogleGenerativeAI(apiKey);
-    const candidateModels = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    const candidateModels = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite", "gemini-3-flash-preview"];
     const userPrompt = `[Target Language: ${language.toUpperCase()}]\n\nPlease review the following ${language} code:\n\`\`\`${language}\n${prompt}\n\`\`\``;
 
     let lastError = null;

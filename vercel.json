@@ -2,6 +2,12 @@
   "version": 2,
   "buildCommand": "cd Frontend && npm install && npm run build",
   "outputDirectory": "Frontend/dist",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "includeFiles": "BACKEND/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/ai/(.*)",
@@ -9,6 +15,14 @@
     },
     {
       "source": "/ai",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/api",
       "destination": "/api/index.js"
     }
   ]
